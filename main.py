@@ -82,12 +82,13 @@ vector_store = Chroma(
     embedding_function=embeddings,
     persist_directory="./chroma_langchain_db",
 )
-vector_store.reset_collection()
-vector_store.add_documents(documents)
+
+# vector_store.reset_collection()
+# vector_store.add_documents(documents)
 
 print(vector_store._collection.count())
 
-#------------------------------ LLM setup -----------------------------------------#
+#------------------------------ LLM setup and retrieval -----------------------------------------#
 
 client = genai.Client()
 
@@ -120,7 +121,7 @@ client = genai.Client()
 # llm = HuggingFacePipeline(pipeline=pipe)
 
 
-#------------------------------------ working process ----------------------------------------#
+#------------------------------------ gemini process ----------------------------------------#
 
 
 
@@ -154,6 +155,7 @@ def qna(prompt):
     )
 
     return {"answer": response.text, "summary": response.text}
+
 #-------------------------------------Fast API endpoint------------------------------------------#
 
 
