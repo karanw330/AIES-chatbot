@@ -164,3 +164,16 @@ For issues, questions, or suggestions, please create an issue in the repository.
 - HuggingFace for embeddings
 - LangChain community for excellent LLM framework
 
+
+## Upload a document per chat
+
+The chatbot now supports one uploaded **PDF, TXT, or Markdown** file per conversation (up to **10 MB**). Create a new chat to use another file. The upload is indexed in a separate Chroma database for that chat, so retrieval never mixes documents from different chats. There is no longer a default hardcoded PDF.
+
+- Click **Attach file** in the chat box and select a document.
+- Once indexing finishes, ask questions about that file.
+- Old chats remain visible, but need an attachment to answer new questions.
+- Deleting a chat also requests deletion of its uploaded document and vector index.
+
+The backend provides `POST /documents/upload` (multipart fields `chat_id`, `file`), `GET /documents/{chat_id}`, `DELETE /documents/{chat_id}`, and `POST /chat` with JSON `{"chat_id": "chat-id", "prompt": "question"}`. The frontend uses the same Vite proxy, now for both `/chat` and `/documents`.
+
+Uploads and indexes are saved under `uploaded_documents/` (gitignored); conversation titles and messages stay in browser local storage. This is intended for local development and **does not include user authentication**, so add access controls before exposing the server publicly.
