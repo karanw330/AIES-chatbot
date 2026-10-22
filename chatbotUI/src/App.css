@@ -99,3 +99,19 @@ button{cursor:pointer}
 .disclaimer{margin:10px 0 0;text-align:center;color:var(--muted);font-size:10px}
 @media(max-width:650px){.chat-header{height:68px;min-height:68px;padding:0 14px}.header-left{gap:10px}.header-heading strong{font-size:14px}.header-new-chat{padding:9px}.header-new-chat span{display:none}.messages-inner{padding:21px 17px 30px;gap:22px}.chat-message.user-message{max-width:94%}.composer-wrap{padding:11px 12px 13px}.message-form{padding:13px 14px 10px}.composer-hint{font-size:9px}.welcome-screen{padding-bottom:40px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:0s!important;scroll-behavior:auto!important}}
+
+/* One-file-per-chat attachment controls */
+.document-toolbar{margin-bottom:10px;min-height:39px;display:flex;flex-direction:column;justify-content:center;gap:7px}
+.upload-document{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.file-input-hidden{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.upload-button{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--accent);font-size:12px;font-weight:700;transition:background .16s,border-color .16s}
+.upload-button:hover:not(:disabled){background:var(--accent-soft);border-color:var(--accent)}
+.upload-button:disabled{opacity:.55;cursor:not-allowed}
+.upload-document>span{font-size:11px;color:var(--muted)}
+.attached-file{display:flex;align-items:center;gap:9px;min-width:0;padding:10px 12px;background:var(--accent-soft);border-radius:10px;color:var(--accent);font-size:12px;font-weight:700;align-self:flex-start;max-width:100%}
+.attached-file>svg{flex-shrink:0}
+.attached-file>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.attached-file>small{font-size:10px;font-weight:500;color:var(--secondary);padding-left:10px;border-left:1px solid var(--border);white-space:nowrap}
+.upload-error{margin:4px 0;color:#c44256;font-size:12px;line-height:1.5}
+.message-form textarea:disabled{cursor:not-allowed;opacity:.65}
+@media(max-width:650px){.attached-file>small{display:none}.upload-document>span{font-size:10px}}
