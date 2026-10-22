@@ -19,6 +19,7 @@ venv.bak/
 
 # Chroma DB / Vector Database
 chroma_langchain_db/
+uploaded_documents/
 *.db
 *.sqlite3
 
