@@ -9,5 +9,7 @@ langchain-chroma
 langchain-huggingface
 langchain-google-genai==2.1.10
 chromadb==1.0.20
+google-genai
+python-multipart
 
 # to install, run      pip install -r requirements.txt
