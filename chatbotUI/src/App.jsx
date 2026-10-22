@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Bookmark, Check, ChevronRight, Copy, Menu, MessageSquare,
-  Moon, Plus, Search, Settings2, Sun, Trash2, X, ArrowUp
+  Moon, Plus, Search, Settings2, Sun, Trash2, X, ArrowUp, Paperclip, FileText
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './App.css';
@@ -67,6 +67,9 @@ export default function App() {
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -106,6 +109,7 @@ export default function App() {
   function newChat() {
     setActiveId(null);
     setDraft('');
+    setUploadError('');
     setSidebarOpen(false);
     inputRef.current?.focus();
   }
@@ -113,13 +117,67 @@ export default function App() {
   function openChat(id) {
     setActiveId(id);
     setDraft('');
+    setUploadError('');
     setSidebarOpen(false);
     inputRef.current?.focus();
   }
 
   function deleteChat(id) {
+    const hasFile = chats.some((chat) => chat.id === id && chat.fileName);
     setChats((prev) => prev.filter((chat) => chat.id !== id));
     if (id === activeId) setActiveId(null);
+    if (hasFile) {
+      void fetch('/documents/' + encodeURIComponent(id), { method: 'DELETE' })
+        .catch((error) => console.error('Failed to delete document:', error));
+    }
+  }
+
+  async function uploadFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || uploading || loading || activeChat?.fileName) return;
+
+    const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+    if (!['.pdf', '.txt', '.md'].includes(extension)) {
+      setUploadError('Please select a PDF, TXT, or Markdown file.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('File must be 10 MB or smaller.');
+      return;
+    }
+
+    const chatId = activeChat?.id || createId();
+    const form = new FormData();
+    form.append('chat_id', chatId);
+    form.append('file', file);
+    setUploading(true);
+    setUploadError('');
+    try {
+      const response = await fetch('/documents/upload', { method: 'POST', body: form });
+      const result = await response.json();
+      if (!response.ok) throw new Error(
+        typeof result.detail === 'string' ? result.detail : 'Unable to upload this file.'
+      );
+      const now = new Date().toISOString();
+      setChats((prev) => {
+        if (prev.some((chat) => chat.id === chatId)) {
+          return prev.map((chat) => chat.id === chatId
+            ? { ...chat, fileName: result.filename, updatedAt: now }
+            : chat);
+        }
+        return [...prev, {
+          id: chatId, title: result.filename, fileName: result.filename,
+          messages: [], saved: false, updatedAt: now
+        }];
+      });
+      setActiveId(chatId);
+      inputRef.current?.focus();
+    } catch (error) {
+      setUploadError(error.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   }
 
   function toggleSaved(id) {
@@ -139,7 +197,7 @@ export default function App() {
 
   async function sendMessage(text) {
     const prompt = text.trim();
-    if (!prompt || loading) return;
+    if (!prompt || loading || uploading || !activeChat?.fileName) return;
 
     const chatId = activeChat?.id || createId();
     const userMessage = { id: createId(), sender: 'user', text: prompt };
@@ -167,7 +225,7 @@ export default function App() {
       const response = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt, chat_id: chatId })
       });
       if (!response.ok) throw new Error('HTTP ' + response.status);
       const data = await response.json();
@@ -281,8 +339,8 @@ export default function App() {
             ) : (
               <div className="welcome-screen">
                 <div className="welcome-eyebrow">AIES CHATBOT</div>
-                <h1>How can I help you today?</h1>
-                <p>Ask a question, explore an idea, or get help understanding something new.</p>
+                <h1>{activeChat?.fileName ? 'Your document is ready.' : 'Ask questions about your file.'}</h1>
+                <p>{activeChat?.fileName ? 'Ask anything about the attached document.' : 'Attach a PDF, TXT, or Markdown file to get started. One file per chat.'}</p>
               </div>
             )}
           </div>
@@ -290,11 +348,25 @@ export default function App() {
 
         <div className="composer-wrap">
           <div className="composer-inner">
+            <div className="document-toolbar">
+              {activeChat?.fileName ? (
+                <div className="attached-file" title={activeChat.fileName}><FileText size={16} /><span>{activeChat.fileName}</span><small>Attached to this chat</small></div>
+              ) : (
+                <div className="upload-document">
+                  <input ref={fileInputRef} className="file-input-hidden" type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" onChange={uploadFile} aria-label="Upload document" />
+                  <button type="button" className="upload-button" disabled={uploading || loading} onClick={() => fileInputRef.current?.click()}>
+                    <Paperclip size={16} /> {uploading ? 'Indexing file...' : 'Attach file'}
+                  </button>
+                  <span>PDF, TXT, MD · Max 10 MB</span>
+                </div>
+              )}
+              {uploadError && <p className="upload-error" role="alert">{uploadError}</p>}
+            </div>
             <form className="message-form" onSubmit={onSubmit}>
-              <textarea ref={inputRef} rows={2} value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={onComposerKeyDown} placeholder="Message AIES..." aria-label="Type your message" />
+              <textarea ref={inputRef} rows={2} value={draft} disabled={!activeChat?.fileName || uploading} onChange={(event) => setDraft(event.target.value)} onKeyDown={onComposerKeyDown} placeholder={activeChat?.fileName ? 'Ask about your document...' : 'Attach a file to start chatting...'} aria-label="Type your message" />
               <div className="form-footer">
-                <span className="composer-hint">Enter to send · Shift + Enter for a new line</span>
-                <button className="send-button" type="submit" disabled={loading || !draft.trim()} aria-label="Send message"><ArrowUp size={19} /></button>
+                <span className="composer-hint">{activeChat?.fileName ? 'Enter to send · Shift + Enter for a new line' : 'One file per chat · Start a new chat to use a different file'}</span>
+                <button className="send-button" type="submit" disabled={loading || uploading || !activeChat?.fileName || !draft.trim()} aria-label="Send message"><ArrowUp size={19} /></button>
               </div>
             </form>
             <p className="disclaimer">AIES can make mistakes. Check important information.</p>
