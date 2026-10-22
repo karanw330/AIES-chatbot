@@ -4,7 +4,6 @@ import json
 import logging
 import re
 import shutil
-import uuid
 from functools import lru_cache
 from pathlib import Path
 
@@ -97,24 +96,22 @@ async def upload_document(chat_id: str = Form(...), file: UploadFile = File(...)
         raise HTTPException(status_code=422, detail="No readable content found.")
 
     DATA_ROOT.mkdir(parents=True, exist_ok=True)
-    temporary = DATA_ROOT / (".upload-" + uuid.uuid4().hex)
-    temporary.mkdir()
     try:
-        (temporary / ("source" + extension)).write_bytes(content)
-        vector_store(temporary).add_documents(chunks)
-        (temporary / "metadata.json").write_text(
+        # Exclusive directory creation prevents concurrent uploads to the same chat.
+        target.mkdir(exist_ok=False)
+    except FileExistsError:
+        raise HTTPException(status_code=409, detail="This chat already has a file.")
+
+    try:
+        (target / ("source" + extension)).write_bytes(content)
+        vector_store(target).add_documents(chunks)
+        # Write metadata last: incomplete indexes are never treated as ready.
+        (target / "metadata.json").write_text(
             json.dumps({"filename": filename, "chunks": len(chunks)}),
             encoding="utf-8",
         )
-        # Atomic directory move: readers cannot see partially indexed documents.
-        if target.exists():
-            raise HTTPException(status_code=409, detail="This chat already has a file.")
-        temporary.rename(target)
-    except HTTPException:
-        shutil.rmtree(temporary, ignore_errors=True)
-        raise
     except Exception:
-        shutil.rmtree(temporary, ignore_errors=True)
+        shutil.rmtree(target, ignore_errors=True)
         logger.exception("Failed to index a document for chat %s", chat_id)
         raise HTTPException(status_code=500, detail="Unable to index this file. Please try again.")
 
